@@ -1,0 +1,49 @@
+#!/bin/bash
+################################################################################
+# FILE:		free_check	
+# SYNOPSIS:	To check for the existence of free_UCD_memory, 
+#		and the smartsaction account
+# USAGE:	free_check
+# AUTHOR:	chcook
+# DATE:		04/14/2014
+# VERSION:	0.1 
+################################################################################
+
+tput sgr0	# Reset screen
+clear		# Clear screen
+
+echo "Host	Script	Account" > /smartsxfr/CC/FreeMem/exists_list
+
+cat /smartsxfr/etc/smarts_list | while read SYS CUST
+do
+echo "$CUST		$SYS" >> /smartsxfr/CC/FreeMem/exists_list
+echo "Looking at $CUST - $SYS"
+#rsync -av --ignore-existing ~/bin/generic ${SYS}:~/bin/
+ssh -n $USER@$SYS '
+if [ -r /usr/local/sbin/free_UCD_memory ]; then SCRIPT="Yes"; else SCRIPT="No"; fi
+id smartsaction >> /smartsxfr/CC/FreeMem/exists_list
+echo -e "free_UCD_memory exists =	${SCRIPT}\n" >> /smartsxfr/CC/FreeMem/exists_list
+'
+done
+
+
+
+
+
+
+
+
+#if [ -x ~/bin/generic ]; then
+#	cp -p /smartsxfr/CC/bin/generic ~/bin/
+#	echo "generic script exists"; else
+#	mkdir -m 755 ~/bin
+#	cp -p /smartsxfr/CC/bin/generic ~/bin/
+#	chmod 755 ~/bin/generic
+#	test -x ~/bin/generic && echo "generic install success" || echo "generic install failure"; fi
+#if [ -h /export/home/RIMusers/bin/generic ]; then
+#	echo "generic link exists"; else
+#	mkdir -m 755 /export/home/RIMusers/bin
+#	ln -s ~/bin/generic /export/home/RIMusers/bin/generic
+#	test -h /export/home/RIMusers/bin/generic && echo "generic link success" || echo "generic link failure"; fi' < /dev/null
+#done
+#done < /smartsxfr/etc/smarts_list
