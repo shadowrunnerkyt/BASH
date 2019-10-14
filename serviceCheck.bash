@@ -25,9 +25,9 @@ echo -e "\nLocal hostname:${GREEN} $(hostnamectl | grep -i static | awk -F' ' '{
 # is SSM running
 ps aux | grep -v $USER | grep amazon-ssm-agent &> /dev/null # -v $USER ignores the user's grep process
 if [[ $? -eq 0 ]]; then
-  echo -e "${GREEN}SSM is installed and running${NC}"
+  echo -e "SSM is ${GREEN}installed and running${NC}"
 else
-  echo -e "${RED}SSM is not running, you need to install it${NC}"
+  echo -e "SSM is ${RED}not running, you need to install it${NC}"
 fi
 
 
@@ -35,9 +35,9 @@ fi
 # is DS installed
 ps aux | grep -v $USER | grep ds_agent &> /dev/null
 if [[ $? == 0 ]]; then
-  echo -e "${GREEN}DeepSec is installed and running${NC}"
+  echo -e "DeepSec is ${GREEN}installed and running${NC}"
 else
-  echo -e "${ORANGE}DeepSec is not running${NC}"
+  echo -e "DeepSec is ${ORANGE}not running${NC}"
 fi
 
 
@@ -76,18 +76,18 @@ if [[ -f $zConf ]]; then
   # is zabbix running
   ps aux | grep -v $USER | grep -i zabbix &> /dev/null # -v $USER ignores the user's grep process
   if [[ $? == 0 ]]; then
-    echo -e "${GREEN}zabbix_agentd${PURPLE} ${zabbixVer} ${GREEN}is installed and running${NC}"
+    echo -e "zabbix_agentd${PURPLE} ${zabbixVer} ${NC}is ${GREEN}installed and running${NC}"
   else
-    echo -e "${ORANGE}zabbix_agentd ${zabbixVer} is not running${NC}"
+    echo -e "zabbix_agentd ${zabbixVer} is ${ORANGE}not running${NC}"
     zabbixRestart
     ps aux | grep -v $USER | grep -i zabbix &> /dev/null # -v $USER ignores the user's grep process
     if [[ $? == 0 ]]; then
       zabbixVersion
-      echo -e "${GREEN}zabbix_agentd${PURPLE} ${zabbixVer} ${GREEN}is installed and running${NC}"
+      echo -e "zabbix_agentd${PURPLE} ${zabbixVer} ${NC}is ${GREEN}installed and running${NC}"
     else
-      echo -e "${RED}zabbix_agent is installed but cannot be started${NC}"
+      echo -e "Zabbix Agent is ${RED}installed but cannot be started${NC}"
     fi
   fi
 else
-    echo -e "${RED}Zabbix Agent not installed${NC}"
+    echo -e "Zabbix Agent is ${RED}not installed${NC}"
 fi
