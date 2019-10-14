@@ -283,7 +283,7 @@ function zabbixInstall {
   wait
   echo -e "${YELLOW}Installing zabbix-agent...${NC}"
   # sudo apt-get install zabbix-agent=1:4.* -y #&> /dev/null
-  sudo DEBIAN_FRONTEND=noninteractive apt-get -qq -o Dpkg::Options::=--force-confdef install zabbix-agent=1:4.* #&> /dev/null
+  sudo DEBIAN_FRONTEND=noninteractive apt-get -qq -o Dpkg::Options::=--force-confnew install zabbix-agent=1:4.* #&> /dev/null
   wait
   apt-cache policy zabbix-agent | egrep --color=always '(Installed|Candidate)'
   zabbixCleanUp
