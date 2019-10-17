@@ -17,9 +17,10 @@ function getWget {
   dpkg -l | grep wget | grep ii &> /dev/null
   if [[ $? != 0 ]]; then
     echo -e "${ORANGE}wget is not installed, it will be removed when done${NC}"
-    echo -e "${GREEN}Installing wget...${NC}"
+    echo -e "Installing wget..."
     export wgetInstalled=0
     sudo apt-get install wget &> /dev/null # install it
+    wait
   else
     echo -e "${GREEN}wget is currently installed${NC}"
     export wgetInstalled=1
@@ -30,6 +31,7 @@ function removeWget {
   if [[ $wgetInstalled == 0 ]]; then
     echo -e "${ORANGE}wget was not installed, but we installed it, so removing it...${NC}"
     sudo apt-get remove wget -y &> /dev/null
+    wait
   fi
 }
 
@@ -37,7 +39,11 @@ function removeWget {
 # Get release version and save as Int in $releaseInt
 # printf -v releaseInt '%d' $(lsb_release -a 2>/dev/null | egrep 'Release' | awk -F' ' '{print $2}') 2>/dev/null
 releaseInt=$(lsb_release -a 2>/dev/null | egrep 'Release' | awk -F' ' '{print $2}' | cut -b -2)
+wait
+echo -e "${GREEN}Determined Ubuntu release, as an integer, to be:${PURPLE} $releaseInt${NC}"
 echo -e "\nLocal hostname:${GREEN} $(hostnamectl | grep -i static | awk -F' ' '{print $3}')${NC}"
+wait
+[[ $(snap list core &> /dev/null; test=$?; wait; echo $test) -eq 0 ]] && snapTest=1 || snapTest=0
 
 
 ########## SSM ##########
@@ -45,11 +51,9 @@ echo -e "\nLocal hostname:${GREEN} $(hostnamectl | grep -i static | awk -F' ' '{
 # On Ubuntu Server 18.04, use Snaps only. Don't install deb packages.
 # install SSM
 function ssmInstall {
-  if [[ $releaseInt -gt 14 ]]; then
+  if [[ $snapTest -eq 1 ]]; then
     sudo snap install amazon-ssm-agent --classic -y
-    if [[ $? -gt 0 ]]; then
-      sudo apt-get install amazon-ssm-agent -y
-    fi
+    wait
   else
     getWget
     echo -e "${YELLOW}Getting AWS SSM Agent...${NC}"
@@ -63,13 +67,14 @@ function ssmInstall {
 
 function ssmCleanup {
   echo -e "${YELLOW}Cleaning up...${NC}"
-  sudo rm amazon-ssm-agent.deb
+  [[ -f amazon-ssm-agent.deb ]] && sudo rm amazon-ssm-agent.deb
+  wait
   removeWget
 }
 
 function ssmRestart {
   echo -e "${YELLOW}Attempting to restart Amazon SSM Agent...${NC}"
-  if [[ $releaseInt -gt 14 ]]; then
+  if [[ $snapTest -eq 1 ]]; then
     sudo snap services amazon-ssm-agent &> /dev/null
     wait
     ssmStatus
@@ -81,6 +86,7 @@ function ssmRestart {
     [[ $? -ne 0 ]] && echo -e "${RED}There's a problem with SSM, you'll have to check it manually${NC}"; return 1
   fi
 }
+
 
 # is SSM running
 function ssmStatus {
@@ -124,6 +130,7 @@ function AgentDeploymentScript {
   if type curl >/dev/null 2>&1; then
     CURLOUT=$(eval curl $MANAGERURL/software/deploymentscript/platform/linuxdetectscriptv1/ -o /tmp/PlatformDetection $CURLOPTIONS;)
     err=$?
+    wait
     if [[ $err -eq 60 ]]; then
       echo "TLS certificate validation for the agent package download has failed. Please check that your Deep Security Manager TLS certificate is signed by a trusted root certificate authority. For more information, search for \"deployment scripts\" in the Deep Security Help Center."
       logger -t TLS certificate validation for the agent package download has failed. Please check that your Deep Security Manager TLS certificate is signed by a trusted root certificate authority. For more information, search for \"deployment scripts\" in the Deep Security Help Center.
@@ -133,6 +140,7 @@ function AgentDeploymentScript {
     if [ -s /tmp/PlatformDetection ]; then
       . /tmp/PlatformDetection
       platform_detect
+      wait
 
       if [[ -z "${linuxPlatform}" ]] || [[ -z "${isRPM}" ]]; then
         echo Unsupported platform is detected
@@ -144,15 +152,18 @@ function AgentDeploymentScript {
       else package='agent.deb'
       fi
       curl $MANAGERURL/software/agent/$linuxPlatform -o /tmp/$package $CURLOPTIONS
+      wait
 
       echo Installing agent package...
       rc=1
       if [[ $isRPM == 1 && -s /tmp/agent.rpm ]]; then
         sudo rpm -ihv /tmp/agent.rpm
         rc=$?
+        wait
       elif [[ -s /tmp/agent.deb ]]; then
         sudo dpkg -i /tmp/agent.deb &> /dev/null
         rc=$?
+        wait
       else
         echo Failed to download the agent package. Please make sure the package is imported in the Deep Security Manager
         logger -t Failed to download the agent package. Please make sure the package is imported in the Deep Security Manager
@@ -162,7 +173,9 @@ function AgentDeploymentScript {
         echo Install the agent package successfully
         sleep 15
         sudo /opt/ds_agent/dsa_control -r
+        wait
         sudo /opt/ds_agent/dsa_control -a $ACTIVATIONURL "tenantID:AB8B1757-94B3-D41E-FEEC-4BDC8A19A5C6" "token:F6B8E19D-779B-167E-0C59-15DACD7EDD02" "policyid:1"
+        wait
       else
         echo Failed to install the agent package
         logger -t Failed to install the agent package
@@ -216,12 +229,13 @@ function removeZabbix {
   wait
   sudo apt-get remove zabbix-release -y &> /dev/null
   wait
-  sudo mv /etc/zabbix/zabbix_agentd.conf /etc/zabbix/zabbix_agentd.conf.bak
+  # sudo mv /etc/zabbix/zabbix_agentd.conf /etc/zabbix/zabbix_agentd.conf.bak
 }
 
 function zabbixCleanUp {
   echo -e "${YELLOW}Cleaning up...${NC}"
-  sudo rm zabbix-release_*.deb
+  [[ -f zabbix-release_*.deb ]] && sudo rm zabbix-release_*.deb
+  wait
   removeWget
 }
 
@@ -242,6 +256,7 @@ function zabbixConfigure {
   [[ -f ${zConf} ]] && echo -e "${YELLOW}Checking Zabbix configuration...${NC}"
   sudo sed -i -E 's/(127.0.0.1|172.24.18.224)/10.25.250.38/' $zConf &> /dev/null
   sudo sed -i 's/^Hostname=Zabbix.*/# &/' $zConf &> /dev/null
+  sudo sed -i 's/zabbix_agentd.conf.d/zabbix_agentd.d\/\*.conf/' $zConf &> /dev/null
   [[ $(egrep -c "^HostMetadataItem=.*" $zConf) -eq 0 ]] && echo 'HostMetadataItem=system.uname' | sudo tee -a $zConf &> /dev/null
   [[ $(egrep -c "^Include=.*" $zConf) -eq 0 ]] && echo 'Include=/etc/zabbix/zabbix_agentd.d/*.conf' | sudo tee -a $zConf &> /dev/null
   echo -e "${GREEN}Config done${NC}"
@@ -249,7 +264,6 @@ function zabbixConfigure {
 }
 
 function zabbixInstall {
-  echo -e "${GREEN}Determined Ubuntu release, as an integer, to be:${PURPLE} $releaseInt${NC}"
   getWget
   if [[ $releaseInt == 18 ]]; then
     echo -e "${YELLOW}Installing Zabbix for Ubuntu${PURPLE} 18 (Bionic)${NC}"
@@ -282,14 +296,13 @@ function zabbixInstall {
   apt-cache policy zabbix-agent | egrep --color=always '(Installed|Candidate)'
   wait
   echo -e "${YELLOW}Installing zabbix-agent...${NC}"
-  # sudo apt-get install zabbix-agent=1:4.* -y #&> /dev/null
-  sudo DEBIAN_FRONTEND=noninteractive apt-get -qq -o Dpkg::Options::=--force-confnew install zabbix-agent=1:4.* #&> /dev/null
+  sudo DEBIAN_FRONTEND=noninteractive apt-get -qq -o Dpkg::Options::=--force-confold install zabbix-agent=1:4.* &> /dev/null
   wait
   apt-cache policy zabbix-agent | egrep --color=always '(Installed|Candidate)'
   zabbixCleanUp
   zabbixConfigure
   zabbixVersion
-  echo -e "Zabbix Agent ${GREEN}is now installed and running ${NC}version: ${PURPLE} ${zabbixVer}${NC}"
+  echo -e "Zabbix Agent is ${GREEN}installed and running ${NC}version: ${PURPLE} ${zabbixVer}${NC}"
 }
 
 function zabbixPurge {
@@ -302,6 +315,7 @@ function zabbixPurge {
   sudo dpkg --purge --force-all zabbix-release &> /dev/null
   wait
   sudo rm -r /etc/zabbix  &> /dev/null
+  wait
 }
 
 #### starts Zabbix assessment ###
